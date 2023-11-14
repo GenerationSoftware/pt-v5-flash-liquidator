@@ -18,17 +18,11 @@ error UniversalRouterAddressZero();
 error FlashLiquidationExpired(uint256 timestamp, uint256 deadline);
 
 /**
- * @notice Thrown when `amountOut` of tokenOut is lower than the expected `amountOutMin`.
- * @param amountOut Amount of `tokenOut` left after performing the flash liquidation
- * @param amountOutMin Minimum amount of `tokenOut` expected
+ * @notice Thrown when the amount of tokenIn left after the liquidation is lower than the expected `profitMin`.
+ * @param profit Amount of `tokenIn` left after performing the flash liquidation
+ * @param profitMin Minimum profit expected
  */
-error InsufficientTokenOutAmount(uint256 amountOut, uint256 amountOutMin);
-
-/**
- * @notice Thrown when a staticcall failed.
- * @param returnData Data returned from the staticcall
- */
-error StaticcallFailed(bytes returnData);
+error InsufficientProfit(uint256 profit, uint256 profitMin);
 
 contract UniswapFlashLiquidation is IFlashSwapCallback {
     /// @notice Uniswap Universal Router address
@@ -54,10 +48,10 @@ contract UniswapFlashLiquidation is IFlashSwapCallback {
      * @param _liquidationPair Address of the LiquidationPair to flash liquidate against
      * @param _receiver Address that will receive the liquidation profit (i.e. the amount of tokenOut in excess)
      * @param _amountOut Amount of tokenOut to swap for tokenIn
-     * @param _amountOutMin Minimum amount of excess tokenOut to receive for performing the liquidation
-     * @param _amountInMax Maximum amount of tokens to be received
-     * @param _swapCommand A 1-byte command indicating the Uniswap version to use for swapping (i.e. 0x01 V3_SWAP_EXACT_OUT or 0x09 V2_SWAP_EXACT_OUT)
-     * @param _swapPath The Uniswap encoded path to trade along
+     * @param _amountInMax Maximum amount of tokenIn to send to the LiquidationPair target
+     * @param _profitMin Minimum amount of excess tokenIn to receive for performing the liquidation
+     * @param _swapCommand A 1-byte command indicating the Uniswap command to use for swapping (i.e. 0x00 V3_SWAP_EXACT_IN or 0x08 V2_SWAP_EXACT_IN)
+     * @param _swapInput The Uniswap input to execute for the respective command
      * @param _deadline The timestamp by which the flash liquidation must be executed
      * @return The amount of tokenOut in excess sent to `_receiver`
      */
@@ -65,10 +59,10 @@ contract UniswapFlashLiquidation is IFlashSwapCallback {
         ILiquidationPair _liquidationPair,
         address _receiver,
         uint256 _amountOut,
-        uint256 _amountOutMin,
         uint256 _amountInMax,
+        uint256 _profitMin,
         bytes calldata _swapCommand,
-        bytes calldata _swapPath,
+        bytes[] calldata _swapInput,
         uint256 _deadline
     ) external returns (uint256) {
         if (block.timestamp > _deadline) {
@@ -79,19 +73,21 @@ contract UniswapFlashLiquidation is IFlashSwapCallback {
             address(this),
             _amountOut,
             _amountInMax,
-            abi.encode(_swapCommand, _swapPath, _deadline)
+            abi.encode(_swapCommand, _swapInput, _deadline)
         );
 
-        IERC20 _tokenOut = IERC20(ILiquidationPair(msg.sender).tokenOut());
-        uint256 _tokenOutBalance = _tokenOut.balanceOf(address(this));
+        IERC20 _tokenIn = IERC20(_liquidationPair.tokenIn());
+        uint256 _tokenInBalance = _tokenIn.balanceOf(address(this));
 
-        if (_tokenOutBalance < _amountOutMin) {
-            revert InsufficientTokenOutAmount(_tokenOutBalance, _amountOutMin);
+        if (_tokenInBalance < _profitMin) {
+            revert InsufficientProfit(_tokenInBalance, _profitMin);
         }
 
-        _tokenOut.transfer(_receiver, _tokenOutBalance);
+        if (_tokenInBalance > 0) {
+            _tokenIn.transfer(_receiver, _tokenInBalance);
+        }
 
-        return _tokenOutBalance;
+        return _tokenInBalance;
     }
 
     /// @inheritdoc IFlashSwapCallback
@@ -101,20 +97,18 @@ contract UniswapFlashLiquidation is IFlashSwapCallback {
         uint256 _amountOut,
         bytes calldata _flashSwapData
     ) external {
-        ILiquidationPair _liquidationPair = ILiquidationPair(msg.sender);
-        IERC20(_liquidationPair.tokenOut()).transfer(address(_universalRouter), _amountOut);
-
-        (bytes memory _swapCommand, bytes[] memory _swapPath, uint256 _deadline) = abi.decode(
+        (bytes memory _swapCommand, bytes[] memory _swapInput, uint256 _deadline) = abi.decode(
             _flashSwapData,
             (bytes, bytes[], uint256)
         );
 
-        bytes[] memory _swapInput = new bytes[](1);
-        _swapInput[0] = abi.encode(_liquidationPair.target(), _amountIn, _amountOut, _swapPath, false);
+        ILiquidationPair _liquidationPair = ILiquidationPair(msg.sender);
+        IERC20(_liquidationPair.tokenOut()).transfer(address(_universalRouter), _amountOut);
 
-        // Swap maximum `_amountOut` of `tokenOut` in exchange of minimum `_amountIn` of `tokenIn`
-        // and transfer to `target`
         _universalRouter.execute(_swapCommand, _swapInput, _deadline);
+
+        IERC20 _tokenIn = IERC20(_liquidationPair.tokenIn());
+        _tokenIn.transfer(_liquidationPair.target(), _amountIn);
     }
 
     /**
