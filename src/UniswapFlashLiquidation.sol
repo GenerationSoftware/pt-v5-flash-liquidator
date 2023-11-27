@@ -7,7 +7,7 @@ import { IFlashSwapCallback } from "pt-v5-liquidator-interfaces/IFlashSwapCallba
 import { IERC20 } from "./interfaces/IERC20.sol";
 import { IUniversalRouter } from "./interfaces/IUniversalRouter.sol";
 
-/// @notice Trown if the UniversalRouter address passed to the constructor is zero.
+/// @notice Thrown if the UniversalRouter address passed to the constructor is zero.
 error UniversalRouterAddressZero();
 
 /**
