@@ -12,12 +12,17 @@ import {
     IERC20
 } from "../../src/UniswapFlashLiquidation.sol";
 
+event FlashSwapLiquidation(address indexed receiver, ILiquidationPair indexed liquidationPair, bytes path, uint256 profit);
+
 contract UniswapFlashLiquidationTest is Test {
-    uint256 public optimismFork;
+    uint256 public optimismForkPusdce;
+    uint256 public optimismForkPweth;
+
     address alice;
 
     // pUSDC.e liquidation pair on Optimism
-    ILiquidationPair public liquidationPair = ILiquidationPair(0xe7680701a2794E6E0a38aC72630c535B9720dA5b);
+    ILiquidationPair public liquidationPairPusdce = ILiquidationPair(0xe7680701a2794E6E0a38aC72630c535B9720dA5b);
+    ILiquidationPair public liquidationPairPweth = ILiquidationPair(0xde5deFa124faAA6d85E98E56b36616d249e543Ca);
 
     // Bridged USDC address on Optimism
     address constant USDCE = 0x7F5c764cBc14f9669B88837ca1490cCa17c31607;
@@ -34,26 +39,21 @@ contract UniswapFlashLiquidationTest is Test {
     UniswapFlashLiquidation public flashLiquidation;
 
     function setUp() public {
-        uint256 _blockNumber = 112811454;
-        console2.log("block number:", _blockNumber);
-        optimismFork = vm.createFork(vm.rpcUrl("optimism"), _blockNumber);
-        console2.log("fork created");
+        optimismForkPusdce = vm.createFork(vm.rpcUrl("optimism"), 112811454);
+        optimismForkPweth = vm.createFork(vm.rpcUrl("optimism"), 112850362);
 
         alice = makeAddr("alice");
-
-        vm.selectFork(optimismFork);
-        assertEq(block.number, _blockNumber);
-
-        console2.log("fork selected");
-
         quoter = IUniswapV3StaticQuoter(0xc80f61d1bdAbD8f5285117e1558fDDf8C64870FE);
         router = IV3SwapRouter(0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45);
-        flashLiquidation = new UniswapFlashLiquidation(quoter, router);
     }
 
-    function testFlashLiquidate() external {
-        address _tokenIn = liquidationPair.tokenIn();
-        address _tokenOut = liquidationPair.tokenOut();
+    function testFlashLiquidatePusdce() external {
+
+        vm.selectFork(optimismForkPusdce);
+        flashLiquidation = new UniswapFlashLiquidation(quoter, router);
+
+        address _tokenIn = liquidationPairPusdce.tokenIn();
+        address _tokenOut = liquidationPairPusdce.tokenOut();
 
         // bytes memory _swapPath = abi.encodePacked(
         //     _tokenOut,
@@ -75,7 +75,7 @@ contract UniswapFlashLiquidationTest is Test {
 
         UniswapFlashLiquidation.ProfitInfo memory profitInfo = flashLiquidation.getProfitInfoStatic(
             5977934,
-            liquidationPair,
+            liquidationPairPusdce,
             _swapPath
         );
         console2.log("amount out", profitInfo.amountOut);
@@ -85,7 +85,7 @@ contract UniswapFlashLiquidationTest is Test {
 
         uint256 _gasStartSearch = gasleft();
         UniswapFlashLiquidation.ProfitInfo memory bestProfitInfo = flashLiquidation.findBestQuoteStatic(
-            liquidationPair,
+            liquidationPairPusdce,
             _swapPath
         );
         console2.log("gas used for search:", _gasStartSearch - gasleft());
@@ -96,9 +96,12 @@ contract UniswapFlashLiquidationTest is Test {
 
         assertGe(bestProfitInfo.profit, profitInfo.profit);
 
+        vm.expectEmit(true, true, true, true);
+        emit FlashSwapLiquidation(alice, liquidationPairPusdce, _swapPath, bestProfitInfo.profit);
+
         uint256 _gasStart = gasleft();
         uint256 _tokenInProfit = flashLiquidation.flashLiquidate(
-            liquidationPair,
+            liquidationPairPusdce,
             alice,
             bestProfitInfo.amountOut,
             bestProfitInfo.amountIn,
@@ -111,9 +114,49 @@ contract UniswapFlashLiquidationTest is Test {
         assertEq(IERC20(_tokenIn).balanceOf(alice), _tokenInProfit);
 
         UniswapFlashLiquidation.ProfitInfo memory newBestProfitInfo = flashLiquidation.findBestQuoteStatic(
-            liquidationPair,
+            liquidationPairPusdce,
             _swapPath
         );
         assertEq(newBestProfitInfo.success, false);
+    }
+
+    function testFlashLiquidatePweth() external {
+        vm.selectFork(optimismForkPweth);
+        flashLiquidation = new UniswapFlashLiquidation(quoter, router);
+
+        address _tokenIn = liquidationPairPweth.tokenIn();
+        address _tokenOut = liquidationPairPweth.tokenOut();
+
+        bytes memory _swapPath = abi.encodePacked(
+            _tokenOut,
+            uint24(100), // 0.01% fee tier
+            WETH,
+            uint24(3000), // 0.30% fee tier
+            _tokenIn
+        );
+
+        UniswapFlashLiquidation.ProfitInfo memory bestProfitInfo = flashLiquidation.findBestQuoteStatic(
+            liquidationPairPweth,
+            _swapPath
+        );
+
+        console2.log("best amount out", bestProfitInfo.amountOut);
+        console2.log("best amount in", bestProfitInfo.amountIn);
+        console2.log("best profit", bestProfitInfo.profit);
+        console2.log("best is success", bestProfitInfo.success);
+
+        uint256 _gasStart = gasleft();
+        uint256 _tokenInProfit = flashLiquidation.flashLiquidate(
+            liquidationPairPweth,
+            alice,
+            bestProfitInfo.amountOut,
+            bestProfitInfo.amountIn,
+            bestProfitInfo.profit,
+            block.timestamp + 300, // current timestamp + 5 minutes
+            _swapPath
+        );
+        console2.log("pWETH liquidation gas used:", _gasStart - gasleft());
+
+        assertEq(IERC20(_tokenIn).balanceOf(alice), _tokenInProfit);
     }
 }

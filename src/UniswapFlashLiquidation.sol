@@ -30,7 +30,18 @@ error FlashLiquidationExpired(uint256 timestamp, uint256 deadline);
 error InsufficientProfit(uint256 profit, uint256 minProfit);
 
 /**
- * @notice TODO
+ * @notice Emitted when a flashswap liquidation has been made.
+ * @param receiver The address that received the profit
+ * @param liquidationPair The pair that was liquidated
+ * @param path The path used for the swap
+ * @param profit The profit sent to the receiver
+ */
+event FlashSwapLiquidation(address indexed receiver, ILiquidationPair indexed liquidationPair, bytes path, uint256 profit);
+
+/**
+ * @notice This contract uses a flashswap on a PoolTogether V5 LiquidationPair to swap yield for
+ * prize tokens on Uniswap V3 and then contributes the prize tokens to the prize pool while
+ * sending any excess to the receiver as profit.
  * @author G9 Software Inc.
  */
 contract UniswapFlashLiquidation is IFlashSwapCallback {
@@ -58,16 +69,17 @@ contract UniswapFlashLiquidation is IFlashSwapCallback {
     }
 
     /**
-     * @notice Liquidate yield via the LiquidationPair and swap `_amountOut` of tokenOut in exchange of `_amountInMax` of tokenIn.
-     *         Any excess in tokenOut is sent as profit to `_receiver`.
+     * @notice Liquidate yield via the LiquidationPair and swap `_amountOut` of tokenOut in exchange of
+     * `_amountInMax` of tokenIn. Any excess in tokenOut is sent as profit to `_receiver`.
      * @dev Will revert if `block.timestamp` exceeds the `_deadline`.
-     * @dev Will revert if the amount of tokenOut after performing the flash liquidation is lower than the expected `_amountOutMin`.
+     * @dev Will revert if the tokenIn profit is less than `_profitMin`.
      * @param _liquidationPair Address of the LiquidationPair to flash liquidate against
-     * @param _receiver Address that will receive the liquidation profit (i.e. the amount of tokenOut in excess)
+     * @param _receiver Address that will receive the liquidation profit
+     * (i.e. the amount of tokenIn in excess)
      * @param _amountOut Amount of tokenOut to swap for tokenIn
      * @param _amountInMax Maximum amount of tokenIn to send to the LiquidationPair target
      * @param _profitMin Minimum amount of excess tokenIn to receive for performing the liquidation
-     * @param _deadline The timestamp by which the flash liquidation must be executed
+     * @param _deadline The timestamp in seconds by which the flash liquidation must be executed
      * @param _path The Uniswap V3 path to take for the swap
      * @return The amount of tokenIn in excess sent to `_receiver`
      */
@@ -87,17 +99,19 @@ contract UniswapFlashLiquidation is IFlashSwapCallback {
         _liquidationPair.swapExactAmountOut(address(this), _amountOut, _amountInMax, _path);
 
         IERC20 _tokenIn = IERC20(_liquidationPair.tokenIn());
-        uint256 _tokenInBalance = _tokenIn.balanceOf(address(this));
+        uint256 _profit = _tokenIn.balanceOf(address(this));
 
-        if (_tokenInBalance < _profitMin) {
-            revert InsufficientProfit(_tokenInBalance, _profitMin);
+        if (_profit < _profitMin) {
+            revert InsufficientProfit(_profit, _profitMin);
         }
 
-        if (_tokenInBalance > 0) {
-            _tokenIn.transfer(_receiver, _tokenInBalance);
+        if (_profit > 0) {
+            _tokenIn.transfer(_receiver, _profit);
         }
 
-        return _tokenInBalance;
+        emit FlashSwapLiquidation(_receiver, _liquidationPair, _path, _profit);
+
+        return _profit;
     }
 
     /// @inheritdoc IFlashSwapCallback
@@ -123,6 +137,7 @@ contract UniswapFlashLiquidation is IFlashSwapCallback {
     }
 
     /// @notice Finds the biggest profit that can be made with the given liquidation pair and swap path.
+    /// @dev SHOULD be called statically, not intended for onchain interactions!
     /// @param _liquidationPair The pair to liquidate
     /// @param _path The Uniswap V3 swap path to use
     /// @return The profit info for the best swap
@@ -182,6 +197,7 @@ contract UniswapFlashLiquidation is IFlashSwapCallback {
     }
 
     /// @notice Calculates the profit point at the given amount out.
+    /// @dev SHOULD be called statically, not intended for onchain interactions!
     /// @param _amountOut The amount out at which to calculate the profit point
     /// @param _liquidationPair The pair to liquidate
     /// @param _path The Uniswap V3 swap path to use
@@ -204,6 +220,10 @@ contract UniswapFlashLiquidation is IFlashSwapCallback {
     }
 
     /// @notice Struct to store current profit info with the associated liquidation parameters.
+    /// @param amountIn The amount of tokenIn that will be sent to the LP
+    /// @param amountOut The amount of tokenOut that will be swapped for tokenIn
+    /// @param profit The amount of tokenIn profit that can be made
+    /// @param success True if the liquidation will be successful, False otherwise
     struct ProfitInfo {
         uint256 amountIn;
         uint256 amountOut;
