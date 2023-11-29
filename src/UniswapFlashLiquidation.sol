@@ -5,10 +5,15 @@ import { ILiquidationPair } from "pt-v5-liquidator-interfaces/ILiquidationPair.s
 import { IFlashSwapCallback } from "pt-v5-liquidator-interfaces/IFlashSwapCallback.sol";
 
 import { IERC20 } from "./interfaces/IERC20.sol";
-import { IUniversalRouter } from "./interfaces/IUniversalRouter.sol";
+import { IUniswapV3StaticQuoter } from "./interfaces/IUniswapV3StaticQuoter.sol";
+import { IV3SwapRouter } from "./interfaces/IV3SwapRouter.sol";
+import { Constants } from "./libraries/UniswapConstants.sol";
 
-/// @notice Thrown if the UniversalRouter address passed to the constructor is zero.
-error UniversalRouterAddressZero();
+/// @notice Thrown if the `IUniswapV3StaticQuoter` address passed to the constructor is the zero address.
+error QuoterZeroAddress();
+
+/// @notice Thrown if the `IV3SwapRouter` address passed to the constructor is the zero address.
+error RouterZeroAddress();
 
 /**
  * @notice Thrown when the `flashLiquidate` `deadline has passed.
@@ -18,26 +23,38 @@ error UniversalRouterAddressZero();
 error FlashLiquidationExpired(uint256 timestamp, uint256 deadline);
 
 /**
- * @notice Thrown when the amount of tokenIn left after the liquidation is lower than the expected `profitMin`.
+ * @notice Thrown when the amount of tokenIn left after the liquidation is lower than the expected `minProfit`.
  * @param profit Amount of `tokenIn` left after performing the flash liquidation
- * @param profitMin Minimum profit expected
+ * @param minProfit Minimum profit expected
  */
-error InsufficientProfit(uint256 profit, uint256 profitMin);
+error InsufficientProfit(uint256 profit, uint256 minProfit);
 
+/**
+ * @notice TODO
+ * @author G9 Software Inc.
+ */
 contract UniswapFlashLiquidation is IFlashSwapCallback {
-    /// @notice Uniswap Universal Router address
-    IUniversalRouter internal _universalRouter;
+    /// @notice Uniswap V3 Static Quoter
+    IUniswapV3StaticQuoter public immutable quoter;
+
+    /// @notice Uniswap V3 Router
+    IV3SwapRouter public immutable router;
 
     /**
      * @notice UniswapFlashLiquidation constructor.
-     * @param universalRouter_ Address of the Uniswap Universal Router to use to perform the flash liquidation
+     * @param quoter_ The Uniswap V3 Static Quoter to use to quote swap prices
+     * @param router_ The Uniswap V3 Swap Router to use for swaps
      */
-    constructor(IUniversalRouter universalRouter_) {
-        if (address(universalRouter_) == address(0)) {
-            revert UniversalRouterAddressZero();
+    constructor(IUniswapV3StaticQuoter quoter_, IV3SwapRouter router_) {
+        if (address(0) == address(quoter_)) {
+            revert QuoterZeroAddress();
+        }
+        if (address(0) == address(router_)) {
+            revert RouterZeroAddress();
         }
 
-        _universalRouter = universalRouter_;
+        quoter = quoter_;
+        router = router_;
     }
 
     /**
@@ -50,10 +67,9 @@ contract UniswapFlashLiquidation is IFlashSwapCallback {
      * @param _amountOut Amount of tokenOut to swap for tokenIn
      * @param _amountInMax Maximum amount of tokenIn to send to the LiquidationPair target
      * @param _profitMin Minimum amount of excess tokenIn to receive for performing the liquidation
-     * @param _swapCommand A 1-byte command indicating the Uniswap command to use for swapping (i.e. 0x00 V3_SWAP_EXACT_IN or 0x08 V2_SWAP_EXACT_IN)
-     * @param _swapInput The Uniswap input to execute for the respective command
      * @param _deadline The timestamp by which the flash liquidation must be executed
-     * @return The amount of tokenOut in excess sent to `_receiver`
+     * @param _path The Uniswap V3 path to take for the swap
+     * @return The amount of tokenIn in excess sent to `_receiver`
      */
     function flashLiquidate(
         ILiquidationPair _liquidationPair,
@@ -61,20 +77,14 @@ contract UniswapFlashLiquidation is IFlashSwapCallback {
         uint256 _amountOut,
         uint256 _amountInMax,
         uint256 _profitMin,
-        bytes calldata _swapCommand,
-        bytes[] calldata _swapInput,
-        uint256 _deadline
-    ) external returns (uint256) {
+        uint256 _deadline,
+        bytes calldata _path
+    ) public returns (uint256) {
         if (block.timestamp > _deadline) {
             revert FlashLiquidationExpired(block.timestamp, _deadline);
         }
 
-        _liquidationPair.swapExactAmountOut(
-            address(this),
-            _amountOut,
-            _amountInMax,
-            abi.encode(_swapCommand, _swapInput, _deadline)
-        );
+        _liquidationPair.swapExactAmountOut(address(this), _amountOut, _amountInMax, _path);
 
         IERC20 _tokenIn = IERC20(_liquidationPair.tokenIn());
         uint256 _tokenInBalance = _tokenIn.balanceOf(address(this));
@@ -92,43 +102,112 @@ contract UniswapFlashLiquidation is IFlashSwapCallback {
 
     /// @inheritdoc IFlashSwapCallback
     function flashSwapCallback(
-        address /** _sender */,
+        address /* _sender */,
         uint256 _amountIn,
         uint256 _amountOut,
-        bytes calldata _flashSwapData
+        bytes calldata _path
     ) external {
-        (bytes memory _swapCommand, bytes[] memory _swapInput, uint256 _deadline) = abi.decode(
-            _flashSwapData,
-            (bytes, bytes[], uint256)
+        ILiquidationPair _liquidationPair = ILiquidationPair(msg.sender);
+        IERC20(_liquidationPair.tokenOut()).transfer(address(router), _amountOut);
+
+        router.exactInput(
+            IV3SwapRouter.ExactInputParams({
+                path: _path,
+                recipient: Constants.MSG_SENDER, // Saves gas compared to using `address(this)`
+                amountIn: Constants.CONTRACT_BALANCE, // Saves gas compared to sending `_amountOut`
+                amountOutMinimum: _amountIn // The amount we must send to the LP target
+            })
         );
 
-        ILiquidationPair _liquidationPair = ILiquidationPair(msg.sender);
-        IERC20(_liquidationPair.tokenOut()).transfer(address(_universalRouter), _amountOut);
-
-        _universalRouter.execute(_swapCommand, _swapInput, _deadline);
-
-        IERC20 _tokenIn = IERC20(_liquidationPair.tokenIn());
-        _tokenIn.transfer(_liquidationPair.target(), _amountIn);
+        IERC20(_liquidationPair.tokenIn()).transfer(_liquidationPair.target(), _amountIn);
     }
 
-    /**
-     * @notice Get `maxAmountOut` of tokenOut that can be liquidated in exchange of `maxAmountIn` of tokenIn.
-     * @param _liquidationPair Address of the LiquidationPair to flash liquidate against
-     * @return maxAmountOut Maximum amount of tokenOut that can be liquidated
-     * @return maxAmountIn Maximum amount of tokenIn that would be received in exchange of `maxAmountOut`` of tokenOut
-     */
-    function previewMaxAmount(
-        ILiquidationPair _liquidationPair
-    ) external returns (uint256 maxAmountOut, uint256 maxAmountIn) {
-        maxAmountOut = _liquidationPair.maxAmountOut();
-        maxAmountIn = _liquidationPair.computeExactAmountIn(maxAmountOut);
+    /// @notice Finds the biggest profit that can be made with the given liquidation pair and swap path.
+    /// @param _liquidationPair The pair to liquidate
+    /// @param _path The Uniswap V3 swap path to use
+    /// @return The profit info for the best swap
+    function findBestQuoteStatic(
+        ILiquidationPair _liquidationPair,
+        bytes calldata _path
+    ) external returns (ProfitInfo memory) {
+        ProfitInfo[] memory p = new ProfitInfo[](4);
+        ProfitInfo memory pMax;
+        uint256 _minOut = 0;
+        uint256 _maxOut = _liquidationPair.maxAmountOut();
+        uint256 _diffOut = _maxOut - _minOut;
+        p[0] = getProfitInfoStatic(0, _liquidationPair, _path);
+        p[1] = getProfitInfoStatic(_diffOut / 3, _liquidationPair, _path);
+        p[2] = getProfitInfoStatic((_diffOut * 2) / 3, _liquidationPair, _path);
+        p[3] = getProfitInfoStatic(_diffOut, _liquidationPair, _path);
+        while (_diffOut > 6) {
+            if (p[0].profit > p[1].profit) {
+                // max between 0 and 1
+                pMax = p[0];
+                _minOut = p[0].amountOut;
+                _maxOut = p[1].amountOut;
+                _diffOut = _maxOut - _minOut;
+                p[3] = p[1]; // new upper limit
+                p[1] = getProfitInfoStatic(_minOut + _diffOut / 3, _liquidationPair, _path);
+                p[2] = getProfitInfoStatic(_minOut + (_diffOut * 2) / 3, _liquidationPair, _path);
+            } else if (p[1].profit > p[2].profit) {
+                // max between 0 and 2
+                pMax = p[1];
+                _minOut = p[0].amountOut;
+                _maxOut = p[2].amountOut;
+                _diffOut = _maxOut - _minOut;
+                p[3] = p[2]; // new upper limit
+                p[1] = getProfitInfoStatic(_minOut + _diffOut / 3, _liquidationPair, _path);
+                p[2] = getProfitInfoStatic(_minOut + (_diffOut * 2) / 3, _liquidationPair, _path);
+            } else if (p[2].profit > p[3].profit) {
+                // max between 1 and 3
+                pMax = p[2];
+                _minOut = p[1].amountOut;
+                _maxOut = p[3].amountOut;
+                _diffOut = _maxOut - _minOut;
+                p[0] = p[1]; // new lower limit
+                p[1] = getProfitInfoStatic(_minOut + _diffOut / 3, _liquidationPair, _path);
+                p[2] = getProfitInfoStatic(_minOut + (_diffOut * 2) / 3, _liquidationPair, _path);
+            } else {
+                // max between 2 and 3
+                pMax = p[3];
+                _minOut = p[2].amountOut;
+                _maxOut = p[3].amountOut;
+                _diffOut = _maxOut - _minOut;
+                p[0] = p[2]; // new lower limit
+                p[1] = getProfitInfoStatic(_minOut + _diffOut / 3, _liquidationPair, _path);
+                p[2] = getProfitInfoStatic(_minOut + (_diffOut * 2) / 3, _liquidationPair, _path);
+            }
+        }
+        return pMax;
     }
 
-    /**
-     * @notice Get Uniswap Universal Router address set at deployment.
-     * @return Uniswap Universal Router address
-     */
-    function universalRouter() external view returns (IUniversalRouter) {
-        return _universalRouter;
+    /// @notice Calculates the profit point at the given amount out.
+    /// @param _amountOut The amount out at which to calculate the profit point
+    /// @param _liquidationPair The pair to liquidate
+    /// @param _path The Uniswap V3 swap path to use
+    /// @return The profit point for the given amount out
+    function getProfitInfoStatic(
+        uint256 _amountOut,
+        ILiquidationPair _liquidationPair,
+        bytes calldata _path
+    ) public returns (ProfitInfo memory) {
+        ProfitInfo memory p;
+        if (_amountOut == 0) return p;
+        p.amountOut = _amountOut;
+        p.amountIn = _liquidationPair.computeExactAmountIn(_amountOut);
+        uint256 _tokenInFromSwap = quoter.quoteExactInput(_path, p.amountOut);
+        if (_tokenInFromSwap >= p.amountIn) {
+            p.profit = _tokenInFromSwap - p.amountIn;
+            p.success = true;
+        }
+        return p;
+    }
+
+    /// @notice Struct to store current profit info with the associated liquidation parameters.
+    struct ProfitInfo {
+        uint256 amountIn;
+        uint256 amountOut;
+        uint256 profit;
+        bool success;
     }
 }

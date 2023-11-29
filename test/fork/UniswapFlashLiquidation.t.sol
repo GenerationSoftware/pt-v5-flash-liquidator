@@ -2,13 +2,13 @@
 pragma solidity ^0.8.23;
 
 import { Test } from "forge-std/Test.sol";
-
-import { IUniswapV3StaticQuoter } from "../interfaces/IUniswapV3StaticQuoter.sol";
+import { console2 } from "forge-std/console2.sol";
 
 import {
     UniswapFlashLiquidation,
     ILiquidationPair,
-    IUniversalRouter,
+    IUniswapV3StaticQuoter,
+    IV3SwapRouter,
     IERC20
 } from "../../src/UniswapFlashLiquidation.sol";
 
@@ -22,67 +22,98 @@ contract UniswapFlashLiquidationTest is Test {
     // Bridged USDC address on Optimism
     address constant USDCE = 0x7F5c764cBc14f9669B88837ca1490cCa17c31607;
 
-    // Uniswap V3 quoter contract
-    IUniswapV3StaticQuoter public uniswapV3Quoter = IUniswapV3StaticQuoter(0xc80f61d1bdAbD8f5285117e1558fDDf8C64870FE);
+    // WETH address on Optimism
+    address constant WETH = 0x4200000000000000000000000000000000000006;
 
-    // Uniswap Universal Router v1.2 on Optimism
-    IUniversalRouter public universalRouter = IUniversalRouter(0xeC8B0F7Ffe3ae75d7FfAb09429e3675bb63503e4);
-    bytes1 constant V3_SWAP_EXACT_IN = bytes1(0x00);
+    // Uniswap V3 quoter contract
+    IUniswapV3StaticQuoter public quoter;
+
+    // Uniswap V3 Swap Router
+    IV3SwapRouter public router;
 
     UniswapFlashLiquidation public flashLiquidation;
 
     function setUp() public {
-        uint256 _blockNumber = 112101787;
+        uint256 _blockNumber = 112811454;
+        console2.log("block number:", _blockNumber);
         optimismFork = vm.createFork(vm.rpcUrl("optimism"), _blockNumber);
+        console2.log("fork created");
 
         alice = makeAddr("alice");
 
         vm.selectFork(optimismFork);
         assertEq(block.number, _blockNumber);
 
-        flashLiquidation = new UniswapFlashLiquidation(universalRouter);
+        console2.log("fork selected");
+
+        quoter = IUniswapV3StaticQuoter(0xc80f61d1bdAbD8f5285117e1558fDDf8C64870FE);
+        router = IV3SwapRouter(0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45);
+        flashLiquidation = new UniswapFlashLiquidation(quoter, router);
     }
 
     function testFlashLiquidate() external {
         address _tokenIn = liquidationPair.tokenIn();
         address _tokenOut = liquidationPair.tokenOut();
 
+        // bytes memory _swapPath = abi.encodePacked(
+        //     _tokenOut,
+        //     uint24(100), // 0.01% fee tier
+        //     USDCE,
+        //     uint24(10000), // 1% fee tier
+        //     _tokenIn
+        // );
+
         bytes memory _swapPath = abi.encodePacked(
             _tokenOut,
             uint24(100), // 0.01% fee tier
             USDCE,
-            uint24(10000), // 1% fee tier
+            uint24(500), // 0.05% fee tier
+            WETH,
+            uint24(3000), // 0.30% fee tier
             _tokenIn
         );
 
-        bytes memory _swapPathInToOut = abi.encodePacked(
-            _tokenIn,
-            uint24(10000), // 1% fee tier
-            USDCE,
-            uint24(100), // 0.01% fee tier
-            _tokenOut
+        UniswapFlashLiquidation.ProfitInfo memory profitInfo = flashLiquidation.getProfitInfoStatic(
+            5977934,
+            liquidationPair,
+            _swapPath
         );
+        console2.log("amount out", profitInfo.amountOut);
+        console2.log("amount in", profitInfo.amountIn);
+        console2.log("profit", profitInfo.profit);
+        console2.log("success", profitInfo.success);
 
-        (, /* uint256 _maxAmountOut */ uint256 _maxAmountIn) = flashLiquidation.previewMaxAmount(liquidationPair);
+        uint256 _gasStartSearch = gasleft();
+        UniswapFlashLiquidation.ProfitInfo memory bestProfitInfo = flashLiquidation.findBestQuoteStatic(
+            liquidationPair,
+            _swapPath
+        );
+        console2.log("gas used for search:", _gasStartSearch - gasleft());
+        console2.log("best amount out", bestProfitInfo.amountOut);
+        console2.log("best amount in", bestProfitInfo.amountIn);
+        console2.log("best profit", bestProfitInfo.profit);
+        console2.log("best is success", bestProfitInfo.success);
 
-        // We estimate the `amountOut` of `tokenOut` we need to swap to be able
-        // to contribute `maxAmountIn` of `tokenIn` to the PrizePool
-        uint256 _amountOut = uniswapV3Quoter.quoteExactInput(_swapPathInToOut, _maxAmountIn);
+        assertGe(bestProfitInfo.profit, profitInfo.profit);
 
-        bytes[] memory _swapInput = new bytes[](1);
-        _swapInput[0] = abi.encode(address(flashLiquidation), _amountOut, 0, _swapPath, false);
-
+        uint256 _gasStart = gasleft();
         uint256 _tokenInProfit = flashLiquidation.flashLiquidate(
             liquidationPair,
             alice,
-            _amountOut,
-            _maxAmountIn,
-            0, // we don't expect to make a profit
-            abi.encodePacked(V3_SWAP_EXACT_IN),
-            _swapInput,
-            block.timestamp + 1800 // current timestamp + 30 minutes
+            bestProfitInfo.amountOut,
+            bestProfitInfo.amountIn,
+            bestProfitInfo.profit,
+            block.timestamp + 300, // current timestamp + 5 minutes
+            _swapPath
         );
+        console2.log("gas used:", _gasStart - gasleft());
 
         assertEq(IERC20(_tokenIn).balanceOf(alice), _tokenInProfit);
+
+        UniswapFlashLiquidation.ProfitInfo memory newBestProfitInfo = flashLiquidation.findBestQuoteStatic(
+            liquidationPair,
+            _swapPath
+        );
+        assertEq(newBestProfitInfo.success, false);
     }
 }
