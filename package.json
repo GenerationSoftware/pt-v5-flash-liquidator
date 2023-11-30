@@ -2,6 +2,7 @@
   "name": "@pooltogether/foundry-template",
   "version": "1.0.0",
   "description": "Template to kickstart a Foundry project",
+  "type": "module",
   "author": {
     "name": "PoolTogether Inc.",
     "url": "https://github.com/pooltogether"
@@ -20,7 +21,10 @@
     "lint-staged": "lint-staged",
     "prepack": "npm run clean && npm run compile",
     "prepare": "husky install",
-    "test": "forge test"
+    "test": "forge test",
+    "deploy:optimism": "forge script script/Deploy.s.sol:Deploy --rpc-url $OPTIMISM_RPC_URL --sender $SENDER --private-key $PRIVATE_KEY --broadcast --verify --etherscan-api-key $OPTIMISM_ETHERSCAN_API_KEY --priority-gas-price 100000",
+    "liquidate:pusdce": "node flashLiquidate.js 0xe7680701a2794E6E0a38aC72630c535B9720dA5b 0xe3b3a464ee575e8e25d2508918383b89c832f2750000647f5c764cbc14f9669b88837ca1490cca17c316070001f44200000000000000000000000000000000000006000bb8395ae52bb17aef68c2888d941736a71dc6d4e125",
+    "liquidate:pweth": "node flashLiquidate.js 0xde5deFa124faAA6d85E98E56b36616d249e543Ca 0x29cb69d4780b53c1e5cd4d2b817142d2e98907150000644200000000000000000000000000000000000006000bb8395ae52bb17aef68c2888d941736a71dc6d4e125"
   },
   "devDependencies": {
     "husky": "8.0.3",
@@ -33,5 +37,8 @@
   "files": [
     "src/**",
     "out/**"
-  ]
+  ],
+  "dependencies": {
+    "viem": "^1.19.9"
+  }
 }
