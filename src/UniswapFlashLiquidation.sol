@@ -30,15 +30,6 @@ error FlashLiquidationExpired(uint256 timestamp, uint256 deadline);
 error InsufficientProfit(uint256 profit, uint256 minProfit);
 
 /**
- * @notice Emitted when a flashswap liquidation has been made.
- * @param receiver The address that received the profit
- * @param liquidationPair The pair that was liquidated
- * @param path The path used for the swap
- * @param profit The profit sent to the receiver
- */
-event FlashSwapLiquidation(address indexed receiver, ILiquidationPair indexed liquidationPair, bytes path, uint256 profit);
-
-/**
  * @notice This contract uses a flashswap on a PoolTogether V5 LiquidationPair to swap yield for
  * prize tokens on Uniswap V3 and then contributes the prize tokens to the prize pool while
  * sending any excess to the receiver as profit.
@@ -50,6 +41,20 @@ contract UniswapFlashLiquidation is IFlashSwapCallback {
 
     /// @notice Uniswap V3 Router
     IV3SwapRouter public immutable router;
+
+    /**
+     * @notice Emitted when a flashswap liquidation has been made.
+     * @param receiver The address that received the profit
+     * @param liquidationPair The pair that was liquidated
+     * @param path The path used for the swap
+     * @param profit The profit sent to the receiver
+     */
+    event FlashSwapLiquidation(
+        address indexed receiver,
+        ILiquidationPair indexed liquidationPair,
+        bytes path,
+        uint256 profit
+    );
 
     /**
      * @notice UniswapFlashLiquidation constructor.

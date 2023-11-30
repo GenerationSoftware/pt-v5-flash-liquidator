@@ -2,7 +2,7 @@
 pragma solidity ^0.8.23;
 
 import { Test } from "forge-std/Test.sol";
-import { console2 } from "forge-std/console2.sol";
+// import { console2 } from "forge-std/console2.sol";
 
 import {
     UniswapFlashLiquidation,
@@ -12,9 +12,14 @@ import {
     IERC20
 } from "../../src/UniswapFlashLiquidation.sol";
 
-event FlashSwapLiquidation(address indexed receiver, ILiquidationPair indexed liquidationPair, bytes path, uint256 profit);
-
 contract UniswapFlashLiquidationTest is Test {
+    event FlashSwapLiquidation(
+        address indexed receiver,
+        ILiquidationPair indexed liquidationPair,
+        bytes path,
+        uint256 profit
+    );
+
     uint256 public optimismForkPusdce;
     uint256 public optimismForkPweth;
 
@@ -48,7 +53,6 @@ contract UniswapFlashLiquidationTest is Test {
     }
 
     function testFlashLiquidatePusdce() external {
-
         vm.selectFork(optimismForkPusdce);
         flashLiquidation = new UniswapFlashLiquidation(quoter, router);
 
@@ -78,21 +82,21 @@ contract UniswapFlashLiquidationTest is Test {
             liquidationPairPusdce,
             _swapPath
         );
-        console2.log("amount out", profitInfo.amountOut);
-        console2.log("amount in", profitInfo.amountIn);
-        console2.log("profit", profitInfo.profit);
-        console2.log("success", profitInfo.success);
+        // console2.log("amount out", profitInfo.amountOut);
+        // console2.log("amount in", profitInfo.amountIn);
+        // console2.log("profit", profitInfo.profit);
+        // console2.log("success", profitInfo.success);
 
         uint256 _gasStartSearch = gasleft();
         UniswapFlashLiquidation.ProfitInfo memory bestProfitInfo = flashLiquidation.findBestQuoteStatic(
             liquidationPairPusdce,
             _swapPath
         );
-        console2.log("gas used for search:", _gasStartSearch - gasleft());
-        console2.log("best amount out", bestProfitInfo.amountOut);
-        console2.log("best amount in", bestProfitInfo.amountIn);
-        console2.log("best profit", bestProfitInfo.profit);
-        console2.log("best is success", bestProfitInfo.success);
+        // console2.log("gas used for search:", _gasStartSearch - gasleft());
+        // console2.log("best amount out", bestProfitInfo.amountOut);
+        // console2.log("best amount in", bestProfitInfo.amountIn);
+        // console2.log("best profit", bestProfitInfo.profit);
+        // console2.log("best is success", bestProfitInfo.success);
 
         assertGe(bestProfitInfo.profit, profitInfo.profit);
 
@@ -109,7 +113,7 @@ contract UniswapFlashLiquidationTest is Test {
             block.timestamp + 300, // current timestamp + 5 minutes
             _swapPath
         );
-        console2.log("gas used:", _gasStart - gasleft());
+        // console2.log("gas used:", _gasStart - gasleft());
 
         assertEq(IERC20(_tokenIn).balanceOf(alice), _tokenInProfit);
 
@@ -140,10 +144,10 @@ contract UniswapFlashLiquidationTest is Test {
             _swapPath
         );
 
-        console2.log("best amount out", bestProfitInfo.amountOut);
-        console2.log("best amount in", bestProfitInfo.amountIn);
-        console2.log("best profit", bestProfitInfo.profit);
-        console2.log("best is success", bestProfitInfo.success);
+        // console2.log("best amount out", bestProfitInfo.amountOut);
+        // console2.log("best amount in", bestProfitInfo.amountIn);
+        // console2.log("best profit", bestProfitInfo.profit);
+        // console2.log("best is success", bestProfitInfo.success);
 
         uint256 _gasStart = gasleft();
         uint256 _tokenInProfit = flashLiquidation.flashLiquidate(
@@ -155,7 +159,7 @@ contract UniswapFlashLiquidationTest is Test {
             block.timestamp + 300, // current timestamp + 5 minutes
             _swapPath
         );
-        console2.log("pWETH liquidation gas used:", _gasStart - gasleft());
+        // console2.log("pWETH liquidation gas used:", _gasStart - gasleft());
 
         assertEq(IERC20(_tokenIn).balanceOf(alice), _tokenInProfit);
     }
