@@ -1,6 +1,19 @@
-# Foundry template
+# Uniswap V3 Flash Liquidator
 
-Template to kickstart a Foundry project.
+Uses a Uniswap V3 swap to flash liquidate yield on PoolTogether V5.
+
+## Deployments
+
+### Optimism
+
+`UniswapFlashLiquidation`: [`0x5927b63e88764d6250b7801ebfdeb7b6c1ac35d0`](https://optimistic.etherscan.io/address/0x5927b63e88764d6250b7801ebfdeb7b6c1ac35d0)
+
+## How to Liquidate
+
+1. run `npm i` and `forge build`
+2. set your environment vars in `.envrc`
+3. run `direnv allow`
+4. run `npm run liquidate:pusdce` or `npm run liquidate:pweth`
 
 ## Getting started
 

@@ -4,7 +4,7 @@
     {
       "files": "*.sol",
       "options": {
-        "compiler": "0.8.21",
+        "compiler": "0.8.23",
         "bracketSpacing": true,
         "printWidth": 120,
         "tabWidth": 4
