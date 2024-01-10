@@ -1,7 +1,22 @@
-import { createPublicClient, createWalletClient, http } from 'viem'
+import { createPublicClient, createWalletClient, http, encodePacked } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts';
 import { optimism } from 'viem/chains'
 import UniswapFlashLiquidation from "./out/UniswapFlashLiquidation.sol/UniswapFlashLiquidation.json" assert { type: "json" };
+
+const lpAddress = process.argv[2];
+
+const swapPathArray = process.argv[3].split("/");
+const pathAbiParams = ["address"];
+for(let i = 1; i < swapPathArray.length; i += 2) {
+  pathAbiParams.push("uint24");
+  pathAbiParams.push("address");
+  if (swapPathArray[i]) {
+    swapPathArray[i] = parseInt(swapPathArray[i]);
+  }
+}
+const swapPath = encodePacked(pathAbiParams, swapPathArray);
+
+const minPoolOut = BigInt(Math.floor(parseFloat(process.argv[4]) * (10 ** 18)));
 
 const flashLiquidatorAddress = "0x5927b63E88764D6250b7801eBfDEb7B6c1ac35d0";
 
@@ -21,22 +36,22 @@ const bestProfit = await client.readContract({
   abi: UniswapFlashLiquidation.abi,
   functionName: "findBestQuoteStatic",
   args: [
-    process.argv[2], // LP
-    process.argv[3] // swap path
+    lpAddress, // LP
+    swapPath // swap path
   ]
 });
 
 console.log(bestProfit);
 
-if (bestProfit.success && bestProfit.profit > 4n * 10n ** 17n) { // > 0.4 POOL
+if (bestProfit.success && bestProfit.profit > minPoolOut) { // > 1 POOL
   const args = [
-    process.argv[2], // LP
+    lpAddress, // LP
     signer.account.address,
     bestProfit.amountOut,
-    (bestProfit.amountIn * 101n) / 100n, // +1%
-    (bestProfit.profit * 99n) / 100n, // -1%
+    (bestProfit.amountIn * 101n) / 100n, // +1% slippage
+    (bestProfit.profit * 99n) / 100n, // -1% slippage
     BigInt(Date.now()) / 1000n + 60n, // +1 min
-    process.argv[3] // swap path
+    swapPath // swap path
   ];
   console.log(args);
   const res = await signer.writeContract({
