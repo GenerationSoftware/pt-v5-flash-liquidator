@@ -10,6 +10,7 @@
 ### Optimism
 
 `UniswapFlashLiquidation`: [`0x5927b63e88764d6250b7801ebfdeb7b6c1ac35d0`](https://optimistic.etherscan.io/address/0x5927b63e88764d6250b7801ebfdeb7b6c1ac35d0)
+`UniswapV2WethPairFlashLiquidator`: [`0xC976818315b3Bd2F386e8c8adB2976a1f029a417`](https://optimistic.etherscan.io/address/0xC976818315b3Bd2F386e8c8adB2976a1f029a417)
 
 ## How to Liquidate
 
