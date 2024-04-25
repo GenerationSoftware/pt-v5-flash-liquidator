@@ -1,6 +1,9 @@
-# Uniswap V3 Flash Liquidator
+# Flash Liquidators
 
-Uses a Uniswap V3 swap to flash liquidate yield on PoolTogether V5.
+## Uniswap V3 Flash Liquidator
+
+`UniswapFlashLiquidation`: A Uniswap V3 swap to flash liquidate yield on PoolTogether V5.
+`UniswapV2WethPairFlashLiquidator`: Instantly dump yield from Prize Vaults whose assets are Uniswap LP pairs.
 
 ## Deployments
 
