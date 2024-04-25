@@ -22,13 +22,14 @@ contract UniswapV2WethPairFlashLiquidator is IFlashSwapCallback {
     }
 
     function isValidLiquidationPair(ILiquidationPair _pair) public view returns (bool) {
-        getLpAssets(_pair.tokenOut());
+        ERC4626 prizeVault = ERC4626(ILiquidationPair(_pair).tokenOut());
+        getLpAssets(IUniswapV2Pair(prizeVault.asset()));
         return true;
     }
 
-    function getLpAssets(address possibleLp) public view returns (IERC20 token0, IERC20 token1) {
-        token0 = IERC20(IUniswapV2Pair(possibleLp).token0());
-        token1 = IERC20(IUniswapV2Pair(possibleLp).token1());
+    function getLpAssets(IUniswapV2Pair uniswapLp) public view returns (IERC20 token0, IERC20 token1) {
+        token0 = IERC20(uniswapLp.token0());
+        token1 = IERC20(uniswapLp.token1());
         if (address(token0) != address(weth) && address(token1) != address(weth)) {
             revert NotWethPair();
         }
@@ -60,7 +61,7 @@ contract UniswapV2WethPairFlashLiquidator is IFlashSwapCallback {
         ERC4626 prizeVault = ERC4626(ILiquidationPair(msg.sender).tokenOut());
         prizeVault.withdraw(_amountOut, address(this), address(this));
         IUniswapV2Pair lp = IUniswapV2Pair(prizeVault.asset());
-        (IERC20 token0, IERC20 token1) = getLpAssets(address(lp));
+        (IERC20 token0, IERC20 token1) = getLpAssets(lp);
         lp.transfer(address(lp), lp.balanceOf(address(this)));
         (uint amount0, uint amount1) = lp.burn(address(this));
         (uint112 reserve0, uint112 reserve1,) = lp.getReserves();

@@ -45,6 +45,8 @@ contract UniswapV2WethPairFlashLiquidatorTest is Test {
 
     function testFlashLiquidateStethWeth() external {
 
+        assertTrue(flasher.isValidLiquidationPair(liquidationPairSteth), "POOL pair is valid LP pair");
+
         vm.prank(stethWhale);
         deal(address(stethWeth), alice, 10e18);
 
@@ -72,6 +74,8 @@ contract UniswapV2WethPairFlashLiquidatorTest is Test {
 
 
     function testFlashLiquidatePoolWeth() external {
+
+        assertTrue(flasher.isValidLiquidationPair(liquidationPairPool), "POOL pair is valid LP pair");
 
         vm.prank(poolWhale);
         deal(address(poolWeth), alice, 10e18);
