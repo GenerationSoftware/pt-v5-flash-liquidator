@@ -1,12 +1,16 @@
-# Uniswap V3 Flash Liquidator
+# Flash Liquidators
 
-Uses a Uniswap V3 swap to flash liquidate yield on PoolTogether V5.
+## Uniswap V3 Flash Liquidator
+
+`UniswapFlashLiquidation`: A Uniswap V3 swap to flash liquidate yield on PoolTogether V5.
+`UniswapV2WethPairFlashLiquidator`: Instantly dump yield from Prize Vaults whose assets are Uniswap LP pairs.
 
 ## Deployments
 
 ### Optimism
 
 `UniswapFlashLiquidation`: [`0x5927b63e88764d6250b7801ebfdeb7b6c1ac35d0`](https://optimistic.etherscan.io/address/0x5927b63e88764d6250b7801ebfdeb7b6c1ac35d0)
+`UniswapV2WethPairFlashLiquidator`: [`0xB56D699B27ca6ee4a76e68e585999E552105C10f`](https://optimistic.etherscan.io/address/0xB56D699B27ca6ee4a76e68e585999E552105C10f)
 
 ## How to Liquidate
 

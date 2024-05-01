@@ -6,3 +6,6 @@
 	path = lib/pt-v5-liquidator-interfaces
 	url = https://github.com/GenerationSoftware/pt-v5-liquidator-interfaces
 	branch = gen-819-create-uniswap-flash-liquidation-contract
+[submodule "lib/openzeppelin-contracts"]
+	path = lib/openzeppelin-contracts
+	url = https://github.com/openzeppelin/openzeppelin-contracts

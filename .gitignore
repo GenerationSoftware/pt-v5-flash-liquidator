@@ -8,5 +8,8 @@ broadcast/
 
 .DS_Store
 .envrc
+.env
 lcov.info
 node_modules
+
+.history
