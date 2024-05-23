@@ -12,6 +12,10 @@
 `UniswapFlashLiquidation`: [`0x5927b63e88764d6250b7801ebfdeb7b6c1ac35d0`](https://optimistic.etherscan.io/address/0x5927b63e88764d6250b7801ebfdeb7b6c1ac35d0)
 `UniswapV2WethPairFlashLiquidator`: [`0xB56D699B27ca6ee4a76e68e585999E552105C10f`](https://optimistic.etherscan.io/address/0xB56D699B27ca6ee4a76e68e585999E552105C10f)
 
+### Base
+
+`UniswapV2WethPairFlashLiquidator`: [`0x0d51a33975024e8afc55fde9f6b070c10aa71dd9`](https://basescan.org/address/0x0d51a33975024e8afc55fde9f6b070c10aa71dd9)
+
 ## How to Liquidate
 
 1. run `npm i` and `forge build`
