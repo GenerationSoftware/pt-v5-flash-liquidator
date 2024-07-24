@@ -14,7 +14,7 @@
 
 ### Base
 
-- `UniswapFlashLiquidation`: [`0xe25c35FD5c9544BbB50BE70B7F8Ffd5E009b43cb`](https://basescan.org/address/0xe25c35fd5c9544bbb50be70b7f8ffd5e009b43cb)
+- `UniswapFlashLiquidation`: [`0xe2368DF1f78Bc5B714b7f502DE8e2B545c6Fe7EC`](https://basescan.org/address/0xe2368df1f78bc5b714b7f502de8e2b545c6fe7ec)
 - `UniswapV2WethPairFlashLiquidator`: [`0x0d51a33975024e8afc55fde9f6b070c10aa71dd9`](https://basescan.org/address/0x0d51a33975024e8afc55fde9f6b070c10aa71dd9)
 
 ## How to Liquidate
