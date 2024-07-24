@@ -6,7 +6,7 @@ interface IUniswapV3StaticQuoter {
     /// @param path The path of the swap, i.e. each token pair and the pool fee
     /// @param amountIn The amount of the first token to swap
     /// @return amountOut The amount of the last token that would be received
-    function quoteExactInput(bytes memory path, uint256 amountIn) external view returns (uint256 amountOut);
+    function quoteExactInput(bytes memory path, uint256 amountIn) external returns (uint256 amountOut);
 
     struct QuoteExactInputSingleParams {
         address tokenIn;
@@ -24,5 +24,5 @@ interface IUniswapV3StaticQuoter {
     /// amountIn The desired input amount
     /// sqrtPriceLimitX96 The price limit of the pool that cannot be exceeded by the swap
     /// @return amountOut The amount of `tokenOut` that would be received
-    function quoteExactInputSingle(QuoteExactInputSingleParams memory params) external view returns (uint256 amountOut);
+    function quoteExactInputSingle(QuoteExactInputSingleParams memory params) external returns (uint256 amountOut);
 }
