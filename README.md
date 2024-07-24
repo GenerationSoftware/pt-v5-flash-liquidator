@@ -9,12 +9,13 @@
 
 ### Optimism
 
-`UniswapFlashLiquidation`: [`0x5927b63e88764d6250b7801ebfdeb7b6c1ac35d0`](https://optimistic.etherscan.io/address/0x5927b63e88764d6250b7801ebfdeb7b6c1ac35d0)
-`UniswapV2WethPairFlashLiquidator`: [`0xB56D699B27ca6ee4a76e68e585999E552105C10f`](https://optimistic.etherscan.io/address/0xB56D699B27ca6ee4a76e68e585999E552105C10f)
+- `UniswapFlashLiquidation`: [`0x5927b63e88764d6250b7801ebfdeb7b6c1ac35d0`](https://optimistic.etherscan.io/address/0x5927b63e88764d6250b7801ebfdeb7b6c1ac35d0)
+- `UniswapV2WethPairFlashLiquidator`: [`0xB56D699B27ca6ee4a76e68e585999E552105C10f`](https://optimistic.etherscan.io/address/0xB56D699B27ca6ee4a76e68e585999E552105C10f)
 
 ### Base
 
-`UniswapV2WethPairFlashLiquidator`: [`0x0d51a33975024e8afc55fde9f6b070c10aa71dd9`](https://basescan.org/address/0x0d51a33975024e8afc55fde9f6b070c10aa71dd9)
+- `UniswapFlashLiquidation`: [`0xe25c35FD5c9544BbB50BE70B7F8Ffd5E009b43cb`](https://basescan.org/address/0xe25c35fd5c9544bbb50be70b7f8ffd5e009b43cb)
+- `UniswapV2WethPairFlashLiquidator`: [`0x0d51a33975024e8afc55fde9f6b070c10aa71dd9`](https://basescan.org/address/0x0d51a33975024e8afc55fde9f6b070c10aa71dd9)
 
 ## How to Liquidate
 

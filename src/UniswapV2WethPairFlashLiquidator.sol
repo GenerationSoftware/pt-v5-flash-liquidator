@@ -21,7 +21,7 @@ contract UniswapV2WethPairFlashLiquidator is IFlashSwapCallback {
         weth = _weth;
     }
 
-    function isValidLiquidationPair(ILiquidationPair _pair) public view returns (bool) {
+    function isValidLiquidationPair(ILiquidationPair _pair) public returns (bool) {
         ERC4626 prizeVault = ERC4626(ILiquidationPair(_pair).tokenOut());
         getLpAssets(IUniswapV2Pair(prizeVault.asset()));
         return true;
