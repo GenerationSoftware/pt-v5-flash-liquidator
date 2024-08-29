@@ -17,6 +17,11 @@
 - `UniswapFlashLiquidation`: [`0xe2368DF1f78Bc5B714b7f502DE8e2B545c6Fe7EC`](https://basescan.org/address/0xe2368df1f78bc5b714b7f502de8e2b545c6fe7ec)
 - `UniswapV2WethPairFlashLiquidator`: [`0x0d51a33975024e8afc55fde9f6b070c10aa71dd9`](https://basescan.org/address/0x0d51a33975024e8afc55fde9f6b070c10aa71dd9)
 
+### Ethereum
+
+- `UniswapFlashLiquidation`: [`0xf22Df1EB029126aDd8fB9B273Ff8c8ced8413d04`](https://etherscan.io/address/0xf22Df1EB029126aDd8fB9B273Ff8c8ced8413d04)
+- `UniswapV2WethPairFlashLiquidator`: [`0xb539ef91E7A26BDDF7cD56F9a5CAFDAf48434aC9`](https://etherscan.io/address/0xb539ef91E7A26BDDF7cD56F9a5CAFDAf48434aC9)
+
 ## How to Liquidate
 
 1. run `npm i` and `forge build`
